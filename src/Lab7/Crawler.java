@@ -8,7 +8,7 @@ public class Crawler {
 
     public static void main(String[] args) throws IOException {
         String[] args2 = new String[2];
-        args2[0] = "https://4pda.ru/forum/index.php?act=idx"; //сайт
+        args2[0] = "http://www.mtuci.ru/"; //сайт
         args2[1] = "2"; //maxdepth
         sites(args2[0], Integer.parseInt(args2[1]));
         getSites(viewed_links);
