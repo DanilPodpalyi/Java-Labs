@@ -22,12 +22,12 @@ public class CrawlerTask implements Runnable {
     public static void main(String[] args) {
         // Ввода пользователем значений, а именно: адреса сайта и желаемой глубины поиска
         Scanner scanner = new Scanner(System.in);
-        System.out.println("Введите адрес сайта (например, www.google.com): ");
+        System.out.println("Введите адрес сайта: ");
         String host1 = scanner.nextLine(); // Необходимо ввести адрес веб-сайта
         String host = "https://" + host1 + "/";
         System.out.println("Введите максимальную глубину поиска: ");
         int depthMax = scanner.nextInt(); // а также ввести максимальную глубину поиска
-        System.out.println("Введите количество потоков (от них будет зависеть время поиска, чем больше - тем быстрее): ");
+        System.out.println("Введите количество потоков: ");
         int countThread = scanner.nextInt();
 
         URLPool pool = new URLPool(depthMax);
