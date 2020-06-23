@@ -4,67 +4,75 @@ import java.io.*;
 import java.net.*;
 import java.util.LinkedList;
 
+/**Данный класс ищет все ссылки на указанной странице до определенной глубины поиска(depth)*/
+
+
 public class Crawler {
 
-    public static void main(String[] args) throws IOException {
-        String[] args2 = new String[2];
-        args2[0] = "http://www.mtuci.ru/"; //сайт
-        args2[1] = "2"; //maxdepth
-        sites(args2[0], Integer.parseInt(args2[1]));
-        getSites(viewed_links);
-        System.out.println("Итого ссылок: " + viewed_links.size());
+    private String prefix = "http";
+    private int depth;  //Глубина поиска
+    private String host; // Адрес страницы
+
+    private LinkedList<URLDepthPair> checked = new LinkedList<>(); // Список с проверенными ссылками
+    private LinkedList<URLDepthPair> unchecked = new LinkedList<>(); // Список с непроверенными ссылками
+
+    public Crawler(String host, int depth) {
+        this.host = host;
+        this.depth = depth;
+        unchecked.add(new URLDepthPair(this.host, this.depth));
     }
 
-    // список для просмотренных ссылок
-    static LinkedList <URLDEP> viewed_links = new LinkedList <URLDEP>();
+    public void Search() throws IOException {
+        URLDepthPair pair;
+        Socket socket;
+        int s=0;
 
-    // список для ожидающих ссылок
-    static LinkedList <URLDEP> finded_links = new LinkedList <URLDEP>();
-
-    public static void getSites(LinkedList<URLDEP> viewLinks) { //возвращает все просмотренные ссылки вместе с их глубиной
-        for (URLDEP c : viewLinks)
-            System.out.println("Depth : "+c.getDepth() + "\tUrl : "+c.getURL());
-    }
-
-    public static void requestToserver(PrintWriter out,URLDEP pair) throws MalformedURLException { //осуществляет запрос на сервер
-        out.println("GET " + pair.getPath() + " HTTP/1.1");
-        out.println("Host: " + pair.getHost());
-        out.println("Connection: close");
-        out.println();
-        out.flush();
-    }
-
-    public static void sites(String pair, int maxDepth) throws IOException {
-        try {
-            finded_links.add(new URLDEP(pair, 0)); // добавить сайт в ожидающий список ссылок
-            while (!finded_links.isEmpty()) {
-                URLDEP currentPair = finded_links.removeFirst(); // удаление первого элемента из списка findLink и присваивание его currentPair
-                if (currentPair.depth < maxDepth) {
-                    // Инициализируем новый сокет из строки String
-                    Socket myso = new Socket(currentPair.getHost(), 80); //создание нового сокета
-                    System.out.println("Connect to url: " + currentPair.getURL());
-                    myso.setSoTimeout(45000);
-                    BufferedReader buffin = new BufferedReader(new InputStreamReader(myso.getInputStream()));
-                    PrintWriter printout = new PrintWriter(myso.getOutputStream(), true);
-                    requestToserver(printout, currentPair); //запрос
-                    String st;
-                    while ((st = buffin.readLine()) != null) { // если строка line не пуста
-                        if (st.indexOf(currentPair.URL_PREFIX) != -1) {
-                            StringBuilder currentLink = new StringBuilder();
-                            for (int i = st.indexOf(currentPair.URL_PREFIX) + 9; st.charAt(i) != '"'; i++) {
-                                currentLink.append(st.charAt(i)); }
-                            URLDEP newPair = new URLDEP(currentLink.toString(), currentPair.depth + 1); //новая пара с глубиной,ув. на 1
-                            if (currentPair.AT_LIST(finded_links, newPair) && currentPair.AT_LIST(viewed_links, newPair) && !currentPair.URL.equals(newPair.URL))
-                                finded_links.add(newPair); //добавить ссылку в список ожидающих
-                        }
-                    }
-                    myso.close();
-                }
-                viewed_links.add(currentPair);   //добавление просмотренной ссылки в список
+        while (unchecked.size() > 0) {
+            pair = unchecked.removeFirst();
+            checked.add(pair);
+            System.out.printf("%-6s%-70s%5s%n",++s + ": " , pair.getURL(),"["+pair.getDepth()+"]");
+            if (pair.getDepth() == 0) continue;
+            try {
+                socket = new Socket(pair.getWebHost(), 80);//создеёт новый сокет и устонавливает соединение
+            } catch (UnknownHostException e) {
+                System.err.println(e);
+                continue;
             }
-        } catch (Exception e){
-            System.out.println("usage: java Crawler <URL> <depth>");
-            System.exit(1);
+            socket.setSoTimeout(4000);
+            //отправка строки текста на другой конец соединения
+            PrintWriter myWriter = new PrintWriter(socket.getOutputStream(), true);
+            myWriter.println("GET " + pair.getDocPath() + " HTTP/1.1");
+            myWriter.println("Host: " + pair.getWebHost());
+            myWriter.println("Connection: close");
+            myWriter.println();
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            String input;
+
+            while ((input = reader.readLine()) != null) {
+                while (input.contains("a href=\"")) {
+                    String link;
+                    try {
+                        input = input.substring(input.indexOf("a href=\"") + 8);
+                        link = input.substring(0, input.indexOf('\"'));
+                        if (!link.startsWith(prefix))
+                            link = link.startsWith("/") ? pair.getLink() + link : pair.getLink() + "/" + link;
+                    } catch (StringIndexOutOfBoundsException e) {
+                        break;
+                    }
+                    if (!(unchecked.contains(new URLDepthPair(link, pair.getDepth() - 1)) | checked.contains(new URLDepthPair(link, pair.getDepth() - 1))))
+                        unchecked.add(new URLDepthPair(link, pair.getDepth() - 1));
+
+                }
+            }
+            reader.close();
+            socket.close();
         }
+    }
+
+    public static void main(String msi[]) throws IOException {
+        new Crawler("http://www.mtuci.ru/",2)
+                .Search();
+
     }
 }
